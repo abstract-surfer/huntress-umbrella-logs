@@ -59,7 +59,10 @@ This repository is designed to be safe for public hosting. Your secrets are mana
 
 2. Run the Docker Container:  
    Use the docker run command with the \--env-file flag to start the container. For debugging, it's best to run it interactively first.  
-   `docker run \--rm \-it \--env-file ./.env \--name cisco-huntress-connector-instance cisco-huntress-connector /bin/bash`
+
+   ```
+   docker run \--rm \-it \--env-file ./.env \--name cisco-huntress-connector-instance cisco-huntress-connector /bin/bash
+   ```
 
    Once inside, you can run the script manually: `python ./cisco_huntress_connector.py`
 
