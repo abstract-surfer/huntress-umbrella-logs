@@ -77,7 +77,7 @@ def get_umbrella_logs(auth_token, category_ids, from_time, to_time):
             'to': to_time,
             'limit': limit,
             'page': page,
-            'categoryids': category_ids
+            'categories': category_ids
         }
         
         try:
