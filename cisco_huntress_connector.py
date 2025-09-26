@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 # --- Configuration from Environment Variables ---
 # Cisco Umbrella API Configuration
+# Documentation: https://developer.cisco.com/docs/cloud-security/umbrella-api-reference-reports-overview/
 UMBRELLA_API_KEY = os.environ.get("UMBRELLA_API_KEY")
 UMBRELLA_API_SECRET = os.environ.get("UMBRELLA_API_SECRET")
 UMBRELLA_ORGANIZATION_ID = os.environ.get("UMBRELLA_ORGANIZATION_ID")
@@ -14,9 +15,10 @@ UMBRELLA_AUTH_URL = os.environ.get("UMBRELLA_AUTH_URL", "https://api.umbrella.co
 UMBRELLA_API_URL = os.environ.get("UMBRELLA_API_URL", "https://reports.api.umbrella.com/v2") 
 UMBRELLA_CATEGORY_IDS = os.environ.get("UMBRELLA_CATEGORY_IDS")
 
-# Splunk HEC Configuration
-SPLUNK_HEC_URL = os.environ.get("SPLUNK_HEC_URL")
-SPLUNK_HEC_TOKEN = os.environ.get("SPLUNK_HEC_TOKEN")
+# Huntress Generic HEC Configuration
+# Documentation: https://support.huntress.io/hc/en-us/articles/36169678734867-Collecting-HEC-HTTP-Event-Collector-Sources
+HUNTRESS_HEC_URL = os.environ.get("HUNTRESS_HEC_URL")
+HUNTRESS_HEC_TOKEN = os.environ.get("HUNTRESS_HEC_TOKEN")
 
 # Script Configuration
 FETCH_INTERVAL_MINUTES = int(os.environ.get("FETCH_INTERVAL_MINUTES", 60))
@@ -106,16 +108,16 @@ def get_umbrella_logs(auth_token, category_ids, from_time, to_time):
     return all_logs
 
 
-def send_to_splunk(logs):
+def send_to_huntress(logs):
     """
-    Sends a list of log events to the Splunk HTTP Event Collector.
+    Sends a list of log events to the Huntress Generic HTTP Event Collector.
     """
-    if not SPLUNK_HEC_URL or not SPLUNK_HEC_TOKEN:
-        print("Error: Splunk HEC URL or Token environment variables not set.")
+    if not HUNTRESS_HEC_URL or not HUNTRESS_HEC_TOKEN:
+        print("Error: Huntress HEC URL or Token environment variables not set.")
         return False
 
     headers = {
-        'Authorization': f'Splunk {SPLUNK_HEC_TOKEN}'
+        'Authorization': f'Splunk {HUNTRESS_HEC_TOKEN}'
     }
     
     payload = ""
@@ -124,24 +126,24 @@ def send_to_splunk(logs):
         payload += json.dumps(event)
 
     try:
-        response = requests.post(SPLUNK_HEC_URL, headers=headers, data=payload, verify=True)
+        response = requests.post(HUNTRESS_HEC_URL, headers=headers, data=payload, verify=True)
         response.raise_for_status()
-        print(f"Successfully sent {len(logs)} events to Splunk.")
+        print(f"Successfully sent {len(logs)} events to Huntress.")
         return True
     except requests.exceptions.RequestException as e:
-        print(f"Error sending logs to Splunk: {e}")
+        print(f"Error sending logs to Huntress: {e}")
         print(f"Response Body: {response.text if 'response' in locals() else 'No response'}")
         return False
 
 def main():
     """
-    Main function to orchestrate fetching logs and sending them to Splunk.
+    Main function to orchestrate fetching logs and sending them to Huntress.
     """
-    print("Starting Cisco Umbrella to Splunk log collection script (using OAuth 2.0).")
+    print("Starting Cisco Umbrella to Huntress log collection script (using OAuth 2.0).")
 
     required_vars = [
         "UMBRELLA_API_KEY", "UMBRELLA_API_SECRET", "UMBRELLA_ORGANIZATION_ID", 
-        "UMBRELLA_CATEGORY_IDS", "SPLUNK_HEC_URL", "SPLUNK_HEC_TOKEN"
+        "UMBRELLA_CATEGORY_IDS", "HUNTRESS_HEC_URL", "HUNTRESS_HEC_TOKEN"
     ]
     if not all(os.environ.get(var) for var in required_vars):
         print("One or more required environment variables are missing. Please check your .env file. Exiting.")
@@ -165,7 +167,7 @@ def main():
 
         if logs:
             print(f"Found {len(logs)} log events for the specified categories.")
-            send_to_splunk(logs)
+            send_to_huntress(logs)
         else:
             print(f"No logs found for the specified categories in this time window.")
         
