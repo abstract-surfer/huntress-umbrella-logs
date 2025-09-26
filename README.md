@@ -24,16 +24,21 @@ This project provides a simple Python script, containerized with Docker, to fetc
 
 This repository is designed to be safe for public hosting. Your secrets are managed in a .env file, which is explicitly ignored by Git via the .gitignore file and should never be committed.
 
+## **Documentation**
+
+[Cisco Umbrella API Documentation](https://developer.cisco.com/docs/cloud-security/umbrella-api-reference-reports-overview/)
+[Huntress Generic HEC Documentation](https://support.huntress.io/hc/en-us/articles/36169678734867-Collecting-HEC-HTTP-Event-Collector-Sources)
+
 **Setup Steps:**
 
 1. Clone the Repository (if applicable):  
-   git clone \<your-repo-url\>  
+   `git clone https://github.com/abstract-surfer/huntress-umbrella-logs`
 2. Create your local .env file:  
    Copy the provided template to create your local environment file.  
-   cp .env.example .env
+   `cp .env.example .env`
 
 3. Edit the .env file:  
-   Open the newly created .env file and fill in your actual secrets and configuration values.
+   Open the newly created `.env` file and fill in your actual secrets and configuration values.
 
 | Environment Variable | Description |
 | :---- | :---- |
@@ -42,7 +47,7 @@ This repository is designed to be safe for public hosting. Your secrets are mana
 | UMBRELLA\_ORGANIZATION\_ID | **Required.** Your numeric Organization ID from the Umbrella dashboard. |
 | UMBRELLA\_API\_URL | The base URL for the Umbrella API. Defaults to the v2 reports API. |
 | UMBRELLA\_CATEGORY\_IDS | **Required.** A comma-separated list of numeric security category IDs to fetch. |
-| HUNTRESS\_HEC\_URL | **Required.** The full URL for your Huntress Generic HEC endpoint. |
+| HUNTRESS\_HEC\_URL | **Required.** The full URL for your Huntress Generic HEC endpoint. The default value in the `.env.example` file should be correct. |
 | HUNTRESS\_HEC\_TOKEN | **Required.** The HEC token from your Huntress Generic HEC setup. |
 | FETCH\_INTERVAL\_MINUTES | The interval in minutes to wait between fetching logs. Defaults to 60. |
 
