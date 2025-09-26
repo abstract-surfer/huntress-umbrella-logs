@@ -55,22 +55,22 @@ This repository is designed to be safe for public hosting. Your secrets are mana
 
 1. Build the Docker Image:  
    Open a terminal in the project directory and run the following command to ensure you get the latest changes:  
-   docker build \--no-cache \-t cisco-huntress-connector .
+   `docker build \--no-cache \-t cisco-huntress-connector .`
 
 2. Run the Docker Container:  
    Use the docker run command with the \--env-file flag to start the container. For debugging, it's best to run it interactively first.  
-   docker run \--rm \-it \--env-file ./.env \--name cisco-huntress-connector-instance cisco-huntress-connector /bin/bash
+   `docker run \--rm \-it \--env-file ./.env \--name cisco-huntress-connector-instance cisco-huntress-connector /bin/bash`
 
-   Once inside, you can run the script manually: python ./cisco\_huntress\_connector.py
+   Once inside, you can run the script manually: `python ./cisco_huntress_connector.py`
 
 ## **Viewing Logs**
 
 To see the output of the running script and check for any errors, you can view the container's logs:
 
-docker logs \-f cisco-huntress-connector-instance
+`docker logs \-f cisco-huntress-connector-instance`
 
 ## **Stopping the Container**
 
 To stop the container, use the docker stop command with the name you assigned:
 
-docker stop cisco-huntress-connector-instance  
+`docker stop cisco-huntress-connector-instance`
