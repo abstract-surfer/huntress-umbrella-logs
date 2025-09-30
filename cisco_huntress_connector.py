@@ -19,6 +19,14 @@ HUNTRESS_HEC_TOKEN = os.environ.get("HUNTRESS_HEC_TOKEN")
 FETCH_INTERVAL_MINUTES = int(os.environ.get("FETCH_INTERVAL_MINUTES", 60))
 IDENTITY_CACHE_REFRESH_MINUTES = int(os.environ.get("IDENTITY_CACHE_REFRESH_MINUTES", 240)) # 4 hours
 
+# --- Debug Mode ---
+DEBUG_MODE = os.environ.get("DEBUG_MODE", "false").lower() == "true"
+
+def debug_log(message):
+    """Prints a message only if DEBUG_MODE is enabled."""
+    if DEBUG_MODE:
+        print(f"[DEBUG] {message}")
+
 # --- Log Transformation Logic ---
 
 def _get_labels(data, key='label'):
@@ -74,11 +82,11 @@ def _transform_dns_log(log):
 
     grouped_categories = _get_grouped_category_labels(log.get('categories', []))
     transformed.update(grouped_categories)
-    
+
     applications = _get_labels(log.get('allapplications', []))
     if applications:
         transformed['Applications'] = applications
-        
+
     return transformed
 
 def _transform_proxy_log(log):
@@ -114,7 +122,7 @@ def _transform_proxy_log(log):
 
 def _transform_firewall_log(log):
     """Transforms a raw Firewall log into a clean, structured object."""
-    print("Warning: Firewall log transformation not yet implemented. Returning raw log.")
+    debug_log("Warning: Firewall log transformation not yet implemented. Returning raw log.")
     return log
 
 def transform_log(log):
@@ -131,7 +139,7 @@ def transform_log(log):
     elif 'protocol' in log:
         return _transform_firewall_log(log)
     else:
-        print(f"Warning: Unknown log type found. Returning raw log.")
+        debug_log(f"Warning: Unknown log type found. Returning raw log: {log}")
         return log
 
 
@@ -186,28 +194,27 @@ def fetch_from_endpoint(token, endpoint_url, log_type):
     from_time = to_time - timedelta(minutes=FETCH_INTERVAL_MINUTES)
     params = {"from": int(from_time.timestamp() * 1000), "to": int(to_time.timestamp() * 1000), "limit": 1000}
     url = f"{UMBRELLA_REPORTS_API_URL}/organizations/{UMBRELLA_ORGANIZATION_ID}{endpoint_url}"
-    
+
     print(f"Fetching {log_type} logs from {from_time.isoformat()} to {to_time.isoformat()}")
     try:
         page = 1
         while True:
-            print(f"Fetching page {page} for {log_type}...")
+            debug_log(f"Fetching page {page} for {log_type} from URL: {url} with params: {params}")
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             data = response.json()
-            
+
             if 'data' in data and data['data']:
                 logs.extend(data['data'])
-            
-            # Check for pagination
+
             meta = data.get('meta', {})
             if meta.get('hasMoreData', False) and meta.get('nextPage'):
                 url = meta['nextPage']
-                params = {} # The nextPage URL contains all necessary parameters
+                params = {}
                 page += 1
             else:
-                break # No more pages
-                
+                break
+
     except requests.exceptions.RequestException as e:
         print(f"Error fetching {log_type} logs from Umbrella API: {e}")
     print(f"Found {len(logs)} {log_type} logs in this time window.")
@@ -230,17 +237,19 @@ def send_to_huntress(logs):
     headers = {"Authorization": f"Splunk {HUNTRESS_HEC_TOKEN}"}
     payload = ""
     for log in logs:
-        event_payload = log.copy()
-        event_payload['sourcetype'] = f"cisco:umbrella:{log.get('LogType', 'unknown')}"
+        event = {
+            "event": log,
+            "sourcetype": f"cisco:umbrella:{log.get('LogType', 'unknown')}"
+        }
         
-        if 'Timestamp' in event_payload and isinstance(event_payload['Timestamp'], str):
+        if 'Timestamp' in log and isinstance(log['Timestamp'], str):
             try:
-                dt = datetime.fromisoformat(event_payload['Timestamp'])
-                event_payload['time'] = dt.timestamp()
+                dt = datetime.fromisoformat(log['Timestamp'])
+                event['time'] = dt.timestamp()
             except ValueError:
-                print(f"Warning: Could not parse timestamp '{event_payload['Timestamp']}'")
+                debug_log(f"Warning: Could not parse timestamp '{log['Timestamp']}'")
         
-        payload += json.dumps(event_payload) + "\n"
+        payload += json.dumps(event) + "\n"
         
     try:
         response = requests.post(HUNTRESS_HEC_URL, headers=headers, data=payload.encode('utf-8'))
@@ -248,6 +257,8 @@ def send_to_huntress(logs):
         print(f"Successfully sent {len(logs)} logs to Huntress.")
     except requests.exceptions.RequestException as e:
         print(f"Error sending logs to Huntress: {e}")
+        if 'response' in locals():
+            debug_log(f"Huntress HEC response Body: {response.text}")
 
 def main():
     """Main function to run the log fetching and sending process in a loop."""
@@ -277,14 +288,15 @@ def main():
                 print(f"Total logs fetched from all sources: {len(all_logs)}. Now enriching and transforming...")
                 transformed_logs = []
                 for log in all_logs:
-                    # Identity enrichment logic could be improved to handle multiple identities
                     if 'identities' in log and log['identities']:
                         identity_id = str(log['identities'][0].get('id'))
                         if identity_id and identity_id in identity_map:
                             log['identities'][0]['labelResolved'] = identity_map[identity_id]
                     
-                    transformed_logs.append(transform_log(log))
+                    transformed_log = transform_log(log)
+                    transformed_logs.append(transformed_log)
                 
+                debug_log(f"First transformed log in batch: {json.dumps(transformed_logs[0], indent=2) if transformed_logs else 'None'}")
                 send_to_huntress(transformed_logs)
             else:
                 print("No logs found from any source in this time window.")
