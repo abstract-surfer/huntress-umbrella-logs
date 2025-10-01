@@ -12,6 +12,7 @@ UMBRELLA_ORGANIZATION_ID = os.environ.get("UMBRELLA_ORGANIZATION_ID")
 UMBRELLA_MANAGEMENT_API_URL = os.environ.get("UMBRELLA_MANAGEMENT_API_URL", "https://api.umbrella.com/deployments/v2")
 UMBRELLA_REPORTS_API_URL = os.environ.get("UMBRELLA_REPORTS_API_URL", "https://reports.api.umbrella.com/v2")
 UMBRELLA_AUTH_URL = os.environ.get("UMBRELLA_AUTH_URL", "https://api.umbrella.com/auth/v2/token")
+UMBRELLA_CATEGORY_IDS = os.environ.get("UMBRELLA_CATEGORY_IDS") # Optional category filtering
 
 HUNTRESS_HEC_URL = os.environ.get("HUNTRESS_HEC_URL")
 HUNTRESS_HEC_TOKEN = os.environ.get("HUNTRESS_HEC_TOKEN")
@@ -57,7 +58,7 @@ def _get_grouped_category_labels(categories_list):
 
     for key, labels in grouped_labels.items():
         grouped_labels[key] = ", ".join(labels)
-        
+
     return grouped_labels
 
 def _transform_dns_log(log):
@@ -91,7 +92,6 @@ def _transform_dns_log(log):
 
 def _transform_proxy_log(log):
     """Transforms a raw Proxy (Web) log into a clean, structured object."""
-    # Proxy logs can have multiple identities; we join them.
     identity_labels = _get_labels(log.get('identities', []))
     identity_types = _get_labels([i.get('type', {}) for i in log.get('identities', [])])
 
@@ -129,13 +129,10 @@ def transform_log(log):
     """
     Router function to call the correct transformation based on unique keys in the log.
     """
-    # DNS logs have 'domain' and 'querytype'
     if 'domain' in log and 'querytype' in log:
         return _transform_dns_log(log)
-    # Proxy logs have 'url' and 'statuscode'
     elif log.get('type') == 'proxy' and 'url' in log:
         return _transform_proxy_log(log)
-    # Firewall logs have 'protocol'
     elif 'protocol' in log:
         return _transform_firewall_log(log)
     else:
@@ -193,6 +190,12 @@ def fetch_from_endpoint(token, endpoint_url, log_type):
     to_time = datetime.now(timezone.utc)
     from_time = to_time - timedelta(minutes=FETCH_INTERVAL_MINUTES)
     params = {"from": int(from_time.timestamp() * 1000), "to": int(to_time.timestamp() * 1000), "limit": 1000}
+
+    # Add optional category filtering if the environment variable is set
+    if UMBRELLA_CATEGORY_IDS:
+        params['categories'] = UMBRELLA_CATEGORY_IDS
+        print(f"Applying category filter with IDs: {UMBRELLA_CATEGORY_IDS}")
+
     url = f"{UMBRELLA_REPORTS_API_URL}/organizations/{UMBRELLA_ORGANIZATION_ID}{endpoint_url}"
 
     print(f"Fetching {log_type} logs from {from_time.isoformat()} to {to_time.isoformat()}")
@@ -241,16 +244,16 @@ def send_to_huntress(logs):
             "event": log,
             "sourcetype": f"cisco:umbrella:{log.get('LogType', 'unknown')}"
         }
-        
+
         if 'Timestamp' in log and isinstance(log['Timestamp'], str):
             try:
                 dt = datetime.fromisoformat(log['Timestamp'])
                 event['time'] = dt.timestamp()
             except ValueError:
                 debug_log(f"Warning: Could not parse timestamp '{log['Timestamp']}'")
-        
+
         payload += json.dumps(event) + "\n"
-        
+
     try:
         response = requests.post(HUNTRESS_HEC_URL, headers=headers, data=payload.encode('utf-8'))
         response.raise_for_status()
@@ -283,7 +286,7 @@ def main():
             all_logs.extend(get_dns_logs(token))
             all_logs.extend(get_proxy_logs(token))
             all_logs.extend(get_firewall_logs(token))
-            
+
             if all_logs:
                 print(f"Total logs fetched from all sources: {len(all_logs)}. Now enriching and transforming...")
                 transformed_logs = []
@@ -292,15 +295,15 @@ def main():
                         identity_id = str(log['identities'][0].get('id'))
                         if identity_id and identity_id in identity_map:
                             log['identities'][0]['labelResolved'] = identity_map[identity_id]
-                    
+
                     transformed_log = transform_log(log)
                     transformed_logs.append(transformed_log)
-                
+
                 debug_log(f"First transformed log in batch: {json.dumps(transformed_logs[0], indent=2) if transformed_logs else 'None'}")
                 send_to_huntress(transformed_logs)
             else:
                 print("No logs found from any source in this time window.")
-        
+
         print(f"--- Cycle complete. Waiting for {FETCH_INTERVAL_MINUTES} minutes before next run. ---")
         time.sleep(FETCH_INTERVAL_MINUTES * 60)
 
