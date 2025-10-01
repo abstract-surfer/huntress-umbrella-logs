@@ -24,24 +24,28 @@ IDENTITY_CACHE_REFRESH_MINUTES = int(os.environ.get("IDENTITY_CACHE_REFRESH_MINU
 DEBUG_MODE = os.environ.get("DEBUG_MODE", "false").lower() == "true"
 
 def debug_log(message):
-    """Prints a message only if DEBUG_MODE is enabled."""
+    #
+    # Prints a message only if DEBUG_MODE is enabled.
+    #
     if DEBUG_MODE:
         print(f"[DEBUG] {message}")
 
 # --- Log Transformation Logic ---
 
 def _get_labels(data, key='label'):
-    """Helper function to extract labels from a list of objects and join them."""
+    #
+    # Helper function to extract labels from a list of objects and join them.
+    #
     if not isinstance(data, list):
         return ""
     labels = [str(item.get(key, '')) for item in data if item.get(key)]
     return ", ".join(labels)
 
 def _get_grouped_category_labels(categories_list):
-    """
-    Groups category labels by their type (e.g., content, application)
-    and returns a dictionary of comma-separated label strings.
-    """
+    #
+    # Groups category labels by their type (e.g., content, application)
+    # and returns a dictionary of comma-separated label strings.
+    #
     grouped_labels = {}
     if not isinstance(categories_list, list):
         return {}
@@ -62,7 +66,9 @@ def _get_grouped_category_labels(categories_list):
     return grouped_labels
 
 def _transform_dns_log(log):
-    """Transforms a raw DNS log into a clean, structured object."""
+    #
+    # Transforms a raw DNS log into a clean, structured object.
+    #
     identity = log.get('identities', [{}])[0]
     identity_label = identity.get('labelResolved', identity.get('label', 'N/A'))
 
@@ -91,7 +97,9 @@ def _transform_dns_log(log):
     return transformed
 
 def _transform_proxy_log(log):
-    """Transforms a raw Proxy (Web) log into a clean, structured object."""
+    #
+    # Transforms a raw Proxy (Web) log into a clean, structured object.
+    #
     identity_labels = _get_labels(log.get('identities', []))
     identity_types = _get_labels([i.get('type', {}) for i in log.get('identities', [])])
 
@@ -121,14 +129,16 @@ def _transform_proxy_log(log):
     return transformed
 
 def _transform_firewall_log(log):
-    """Transforms a raw Firewall log into a clean, structured object."""
+    #
+    # Transforms a raw Firewall log into a clean, structured object.
+    #
     debug_log("Warning: Firewall log transformation not yet implemented. Returning raw log.")
     return log
 
 def transform_log(log):
-    """
-    Router function to call the correct transformation based on unique keys in the log.
-    """
+    #
+    # Router function to call the correct transformation based on unique keys in the log.
+    #
     if 'domain' in log and 'querytype' in log:
         return _transform_dns_log(log)
     elif log.get('type') == 'proxy' and 'url' in log:
@@ -143,7 +153,9 @@ def transform_log(log):
 # --- Core Application Logic ---
 
 def get_umbrella_token():
-    """Authenticates to get an OAuth 2.0 access token."""
+    #
+    # Authenticates to get an OAuth 2.0 access token.
+    #
     print("Requesting new auth token from Cisco Umbrella...")
     try:
         response = requests.post(
@@ -159,7 +171,9 @@ def get_umbrella_token():
         return None
 
 def get_identity_mappings(token):
-    """Fetches all identities from the Management API to create a mapping cache."""
+    #
+    # Fetches all identities from the Management API to create a mapping cache.
+    #
     if not token: return {}
     print("Fetching identities from Management API to build cache...")
     identity_map = {}
@@ -183,7 +197,9 @@ def get_identity_mappings(token):
     return identity_map
 
 def fetch_from_endpoint(token, endpoint_url, log_type):
-    """Generic function to fetch paginated logs from a given Umbrella Reporting API endpoint."""
+    #
+    # Generic function to fetch paginated logs from a given Umbrella Reporting API endpoint.
+    #
     if not token: return []
     logs = []
     headers = {"Authorization": f"Bearer {token}"}
@@ -191,7 +207,9 @@ def fetch_from_endpoint(token, endpoint_url, log_type):
     from_time = to_time - timedelta(minutes=FETCH_INTERVAL_MINUTES)
     params = {"from": int(from_time.timestamp() * 1000), "to": int(to_time.timestamp() * 1000), "limit": 1000}
 
+    #
     # Add optional category filtering if the environment variable is set
+    #
     if UMBRELLA_CATEGORY_IDS:
         params['categories'] = UMBRELLA_CATEGORY_IDS
         print(f"Applying category filter with IDs: {UMBRELLA_CATEGORY_IDS}")
@@ -233,7 +251,9 @@ def get_firewall_logs(token):
     return fetch_from_endpoint(token, "/activity/firewall", "Firewall")
 
 def send_to_huntress(logs):
-    """Sends a list of transformed logs to the Huntress HEC endpoint."""
+    #
+    # Sends a list of transformed logs to the Huntress HEC endpoint.
+    #
     if not logs:
         print("No logs to send to Huntress.")
         return
@@ -264,7 +284,9 @@ def send_to_huntress(logs):
             debug_log(f"Huntress HEC response Body: {response.text}")
 
 def main():
-    """Main function to run the log fetching and sending process in a loop."""
+    #
+    # Main function to run the log fetching and sending process in a loop.
+    #
     print("Starting Cisco Umbrella to Huntress Connector...")
     required_vars = ["UMBRELLA_API_KEY", "UMBRELLA_API_SECRET", "UMBRELLA_ORGANIZATION_ID", "HUNTRESS_HEC_URL", "HUNTRESS_HEC_TOKEN"]
     if any(not os.environ.get(var) for var in required_vars):

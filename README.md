@@ -8,8 +8,7 @@ This project provides a Python script, containerized with Docker, to fetch DNS, 
 * **Optionally filters** logs by a comma-separated list of category IDs.
 * Uses OAuth 2.0 for secure authentication with the Umbrella API.
 * Enriches logs by mapping Roaming Client IDs to their human-readable device names.
-* Transforms raw, nested JSON logs into a flat, easy-to-read format suitable for HEC ingestion.
-* Groups log categories by type (e.g., ContentCategories, ApplicationCategories) for easier parsing in your SIEM.
+* Transforms raw, nested JSON logs into a flat, easy-to-read format suitable for searching in Huntress SIEM.
 * Continuously runs on a configurable interval to pull new logs.
 * Includes an optional **Debug Mode** for verbose logging, toggleable via an environment variable.
 
@@ -35,15 +34,16 @@ This repository is designed to be safe for public hosting. Your secrets are mana
 
 1. **Clone the Repository (if you haven't already):**
    ```
-   git clone \[https://github.com/abstract-surfer/huntress-umbrella-logs\](https://github.com/abstract-surfer/huntress-umbrella-logs)
+   git clone [https://github.com/abstract-surfer/huntress-umbrella-logs](https://github.com/abstract-surfer/huntress-umbrella-logs)
    ```
 
-2. Create your local .env file:
-   Copy the provided .env.example template to create your local environment file.
-   `cp .env.example .env`
+2. Create your local .env file. You can copy the provided .env.example template to create your local environment file.
 
-3. Edit the .env file:
-   Open the newly created .env file and fill in your actual secrets and configuration values.
+   ```
+   cp .env.example .env
+   ```
+
+3. Edit the .env file: Open the newly created .env file and fill in your actual secrets and configuration values.
 
 | Environment Variable | Description |
 | :---- | :---- |
@@ -65,7 +65,10 @@ This repository is designed to be safe for public hosting. Your secrets are mana
 
 1. Build the Docker Image:
    From the root of the project directory, run the following command:
-   `docker build -t umbrella-huntress-connector .`
+
+   ```
+   docker build -t umbrella-huntress-connector .
+   ```
 
 2. Run the Docker Container:
    Use the docker run command with the --env-file flag to start the container in the background.
@@ -87,17 +90,22 @@ docker run --rm -it --env-file ./.env --name umbrella-huntress-instance umbrella
 
 Once inside the container's shell, you can run the script manually:
 
-`python .cisco_splunk_connector.py`
+```
+python .cisco_splunk_connector.py
+```
 
 ## **Viewing Logs**
 
-To see the output of the running container and check for any errors, you can view the container's logs:
+To see the output of the running container and check for any errors, you can follow the container's logs in realtime:
 
-\# Follow the logs in real-time
-`docker logs -f umbrella-huntress-instance`
+```
+docker logs -f umbrella-huntress-instance
+```
 
 ## **Stopping the Container**
 
 To stop the container, use the docker stop command with the name you assigned:
 
-`docker stop umbrella-huntress-instance`
+```
+docker stop umbrella-huntress-instance
+```
